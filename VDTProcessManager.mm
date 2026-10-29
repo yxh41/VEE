@@ -9,6 +9,8 @@
 #import "PrivateHeaders.h"
 
 #include <os/lock.h>
+#include <stdlib.h>
+#include <string.h>
 
 #pragma mark - Thread-safe prefs storage
 
@@ -37,15 +39,23 @@ static LSApplicationProxy* appproxy_from_bundle_path(NSString *path){
 
 static LSApplicationProxy* appproxy_from_pid(pid_t pid){
     char pathBuffer[PROC_PIDPATHINFO_MAXSIZE];
-    proc_pidpath(pid, pathBuffer, sizeof(pathBuffer));
-    NSString *possibleBundlePath = [NSString stringWithUTF8String:pathBuffer].stringByDeletingLastPathComponent;
+    memset(pathBuffer, 0, sizeof(pathBuffer));
+    int ret = proc_pidpath(pid, pathBuffer, (uint32_t)sizeof(pathBuffer));
+    if (ret <= 0 || pathBuffer[0] == '\0') return nil;
+    NSString *fullPath = [NSString stringWithUTF8String:pathBuffer];
+    if (!fullPath) return nil;
+    NSString *possibleBundlePath = fullPath.stringByDeletingLastPathComponent;
     return appproxy_from_bundle_path(possibleBundlePath);
 }
 
 static NSString* name_from_pid(pid_t pid){
     char nameBuffer[256];
-    proc_name(pid, nameBuffer, sizeof(nameBuffer));
-    return [NSString stringWithUTF8String:nameBuffer];
+    memset(nameBuffer, 0, sizeof(nameBuffer));
+    int ret = proc_name(pid, nameBuffer, (uint32_t)sizeof(nameBuffer));
+    // Return @"" (never nil) so callers using it in sets/predicates stay safe.
+    if (ret <= 0 || nameBuffer[0] == '\0') return @"";
+    NSString *name = [NSString stringWithUTF8String:nameBuffer];
+    return name ?: @"";
 }
 
 /*
@@ -85,14 +95,32 @@ NSArray* pids_with_identifier_and_type(NSArray <NSString *>*identifiers, NSArray
         }
     }
 
-    int n = proc_listpids(PROC_ALL_PIDS, 0, NULL, 0);
-    int *buffer = (int *)malloc(sizeof(int)*n);
-    int k = proc_listpids(PROC_ALL_PIDS, 0, buffer, n*sizeof(int));
-    
+    // proc_listpids returns a BYTE count, not an element count.
+    int bytes = proc_listpids(PROC_ALL_PIDS, 0, NULL, 0);
+    if (bytes <= 0) {
+        VDTProbeRecord(@"runningboardd.pidLookup", @{
+            @"identifiers": identifiers ?: @[],
+            @"types": types ?: @[],
+            @"matchedPids": @[],
+            @"error": @"listpids returned <= 0"
+        });
+        return @[];
+    }
+    int capacity = bytes / (int)sizeof(int) + 32; // headroom: process count may grow between the two calls
+    int *buffer = (int *)calloc((size_t)capacity, sizeof(int));
+    if (!buffer) return @[];
+    int usedBytes = proc_listpids(PROC_ALL_PIDS, 0, buffer, capacity * (int)sizeof(int));
+    if (usedBytes <= 0) {
+        free(buffer);
+        return @[];
+    }
+    int used = usedBytes / (int)sizeof(int);
+    if (used > capacity) used = capacity; // defensive clamp
+
     NSMutableArray *pids = [NSMutableArray array];
-    for (int i = 0; i < k; i++) {
+    for (int i = 0; i < used; i++) {
         int pid = buffer[i];
-        if (pid == 0) continue;
+        if (pid <= 0) continue;
         
         BOOL matched = NO;
 
