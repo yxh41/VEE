@@ -46,13 +46,16 @@ jobs:
 
       - name: Install roothide Theos
         run: |
+          # Pinned commit 88506b2c is no longer reachable from any branch after
+          # an upstream history rewrite, so `checkout --detach <sha>` fails with
+          # "fatal: unable to read tree". Track the default branch HEAD instead.
           git clone --recursive https://github.com/roothide/theos.git "$THEOS"
-          git -C "$THEOS" checkout --detach 88506b2c22e9e07dd4ed055f23c9e398a117a2c7
 
       - name: Install iPhoneOS16.5 SDK
         run: |
+          # A depth-1 clone cannot checkout an older pinned commit (same
+          # "unable to read tree" failure). Use HEAD and sparse-checkout.
           git clone --depth 1 --filter=blob:none --sparse https://github.com/theos/sdks.git /tmp/theos-sdks
-          git -C /tmp/theos-sdks checkout --detach 0222fd5413cf4b9af096f37b4621afa2688572f7
           git -C /tmp/theos-sdks sparse-checkout set iPhoneOS16.5.sdk
           mkdir -p "$THEOS/sdks"
           cp -R /tmp/theos-sdks/iPhoneOS16.5.sdk "$THEOS/sdks/"
