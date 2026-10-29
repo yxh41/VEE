@@ -138,9 +138,21 @@
 }
 
 -(void)_reallyRespring{
+    // Both classes live in private frameworks that may not be loaded inside the
+    // Preferences process on every firmware. Guard each dynamic lookup: without
+    // this, a missing class makes [NSSet setWithObject:nil] raise and crashes the
+    // settings pane when the user taps Respring.
+    id relaunchClass = NSClassFromString(@"SBSRelaunchAction");
+    id serviceClass = NSClassFromString(@"FBSSystemService");
+    if (!relaunchClass || !serviceClass) return;
+    if (![relaunchClass respondsToSelector:@selector(actionWithReason:options:targetURL:)] ||
+        ![serviceClass respondsToSelector:@selector(sharedService)]) return;
     NSURL *relaunchURL = [NSURL URLWithString:@"prefs:root=Vedette"];
-    SBSRelaunchAction *restartAction = [NSClassFromString(@"SBSRelaunchAction") actionWithReason:@"RestartRenderServer" options:4 targetURL:relaunchURL];
-    [[NSClassFromString(@"FBSSystemService") sharedService] sendActions:[NSSet setWithObject:restartAction] withResult:nil];
+    id restartAction = [relaunchClass actionWithReason:@"RestartRenderServer" options:4 targetURL:relaunchURL];
+    if (!restartAction) return;
+    id service = [serviceClass sharedService];
+    if (!service || ![service respondsToSelector:@selector(sendActions:withResult:)]) return;
+    [service sendActions:[NSSet setWithObject:restartAction] withResult:nil];
 }
 
 - (id)readPreferenceValue:(PSSpecifier*)specifier {
