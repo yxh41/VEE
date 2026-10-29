@@ -23,37 +23,68 @@
 #import "CHPDaemonInfo.h"
 #import "CHPDaemonList.h"
 #import "../VDTProcessConfiguration.h"
-#import "../../VDTShared.h"
+#import "../VDTListPresentation.h"
+#import "../VDTLocalization.h"
 
 @interface PSListController()
 - (id)controllerForSpecifier:(PSSpecifier*)specifier;
 @end
 
-@implementation CHPDaemonListController
+@implementation VDTDaemonListController
 
 - (void)viewDidLoad
 {
-	[self applySearchControllerHideWhileScrolling:NO];
-	[[CHPDaemonList sharedInstance] addObserver:self];
-
-	if(![CHPDaemonList sharedInstance].loaded)
-	{
-		dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^
-		{
-			[[CHPDaemonList sharedInstance] updateDaemonListIfNeeded];
-		});
-	}
-	else
-	{
-		[self updateSuggestedDaemons];
-	}
-
 	[super viewDidLoad];
+	[self applySearchControllerHideWhileScrolling:NO];
+	[[VDTDaemonList sharedInstance] addObserver:self];
+	self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc]
+		initWithTitle:VDTLoc(self.class, @"Refresh") style:UIBarButtonItemStylePlain
+		target:self action:@selector(refreshDaemonRecords)];
+}
+
+- (void)dealloc
+{
+	[[VDTDaemonList sharedInstance] removeObserver:self];
+}
+
+- (void)viewWillAppear:(BOOL)animated
+{
+	_vdtVisible = NO;
+	// Keep the live table snapshot until the visible, superclass-managed reload.
+	_vdtNeedsReload = YES;
+	[super viewWillAppear:animated];
+	[[VDTDaemonList sharedInstance] updateDaemonListIfNeeded];
+}
+
+- (void)viewDidAppear:(BOOL)animated
+{
+	[super viewDidAppear:animated];
+	_vdtVisible = YES;
+	if (_vdtNeedsReload) [self reloadSpecifiers];
+}
+
+- (void)viewWillDisappear:(BOOL)animated
+{
+	_vdtVisible = NO;
+	[super viewWillDisappear:animated];
+}
+
+- (void)reloadSpecifiers
+{
+	_vdtNeedsReload = YES;
+	if (!_vdtVisible) return;
+	_vdtNeedsReload = NO;
+	[super reloadSpecifiers];
+}
+
+- (void)refreshDaemonRecords
+{
+	[[VDTDaemonList sharedInstance] refresh];
 }
 
 - (NSString*)topTitle
 {
-	return @"Daemons";
+	return VDTLoc(self.class, @"Daemons");
 }
 
 - (NSString*)plistName
@@ -63,107 +94,89 @@
 
 - (NSMutableArray*)specifiers
 {
-	NSMutableArray* specifiers = [self valueForKey:@"_specifiers"];
-
-	if(!specifiers)
+	if (!_specifiers)
 	{
-		specifiers = [NSMutableArray new];
-
-        if (@available(iOS 11.0, *)){
-        }else{
-			[specifiers addObject:[PSSpecifier emptyGroupSpecifier]];
-			[specifiers addObject:[PSSpecifier emptyGroupSpecifier]];
-		}
-
-		if(![CHPDaemonList sharedInstance].loaded)
+		NSMutableArray *rows = [NSMutableArray new];
+		VDTDaemonList *catalog = [VDTDaemonList sharedInstance];
+		if (!catalog.loaded)
 		{
-			PSSpecifier* loadingIndicator = [PSSpecifier preferenceSpecifierNamed:@""
-							target:self
-							set:nil
-							get:nil
-							detail:nil
-							cell:[PSTableCell cellTypeFromString:@"PSSpinnerCell"]
-							edit:nil];
-
-			[specifiers addObject:loadingIndicator];
+			if (catalog.failed) {
+				PSSpecifier *status = [PSSpecifier emptyGroupSpecifier];
+				[status setProperty:VDTLoc(self.class, @"Unable to load Daemons.") forKey:@"footerText"];
+				[rows addObject:status];
+				[rows addObject:[self catalogRetrySpecifier]];
+			} else {
+				PSSpecifier *loading = [PSSpecifier preferenceSpecifierNamed:VDTLoc(self.class, @"Loading…")
+					target:self set:nil get:nil detail:nil
+					cell:[PSTableCell cellTypeFromString:@"PSSpinnerCell"] edit:nil];
+				[rows addObject:loading];
+			}
+			_specifiers = rows;
 		}
 		else
 		{
-            _showsAllDaemons = YES;
-
-			NSArray<CHPDaemonInfo*>* daemonList = [CHPDaemonList sharedInstance].daemonList;
-
-			for(CHPDaemonInfo* info in daemonList)
+			_showsAllDaemons = YES;
+			NSArray<VDTDaemonInfo *> *daemonList = [VDTDaemonList sharedInstance].daemonList;
+			for (VDTDaemonInfo *info in daemonList)
 			{
-				if(_showsAllDaemons || [_suggestedDaemons containsObject:[info displayName]])
-				{
-					if(_searchKey && ![_searchKey isEqualToString:@""])
-					{
-						if(![[info displayName] localizedStandardContainsString:_searchKey])
-						{
-							continue;
-						}
-					}
-					
-					PSSpecifier* specifier = [PSSpecifier preferenceSpecifierNamed:[info displayName]
-								target:self
-								set:nil
-								get:@selector(previewStringForSpecifier:)
-								detail:[VDTProcessConfiguration class]
-								cell:PSLinkListCell
-								edit:nil];
-                    [specifier setProperty:@(VDTConfigTypeDaemon) forKey:@"configurationType"];
-
-					[specifier setProperty:@YES forKey:@"enabled"];
-					[specifier setProperty:[info displayName] forKey:@"daemonName"];
-					[specifier setProperty:info forKey:@"daemonInfo"];
-
-					[specifiers addObject:specifier];
-				}
+				NSString *name = [info displayName];
+				if (![name isKindOfClass:[NSString class]] || name.length == 0) continue;
+				PSSpecifier *specifier = [PSSpecifier preferenceSpecifierNamed:name
+					target:self set:nil get:@selector(previewStringForSpecifier:)
+					detail:[VDTProcessConfiguration class] cell:PSLinkListCell edit:nil];
+				[specifier setProperty:@(VDTConfigTypeDaemon) forKey:@"configurationType"];
+				[specifier setProperty:@YES forKey:@"enabled"];
+				// Keep the original basename identity, including Apple daemons.
+				[specifier setProperty:[info displayName] forKey:@"daemonName"];
+				[specifier setProperty:info forKey:@"daemonInfo"];
+				[rows addObject:specifier];
+			}
+			NSString *query = [_searchKey copy] ?: @"";
+			_specifiers = VDTGroupedListSpecifiers(rows, @"daemonName", VDTConfigTypeDaemon,
+				self.class, ^BOOL(PSSpecifier *specifier) {
+					return query.length == 0 || [specifier.name localizedStandardContainsString:query];
+				}, query.length ? @"No Results" : @"No Daemons");
+			if (catalog.failed) {
+				NSMutableArray *withFailure = [_specifiers mutableCopy];
+				PSSpecifier *status = [PSSpecifier emptyGroupSpecifier];
+				[status setProperty:VDTLoc(self.class, @"Refresh failed. Showing the previous list.") forKey:@"footerText"];
+				[withFailure addObject:status];
+				[withFailure addObject:[self catalogRetrySpecifier]];
+				_specifiers = withFailure;
 			}
 		}
-
-		[self setValue:specifiers forKey:@"_specifiers"];
 	}
-
-	return specifiers;
+	return _specifiers;
 }
 
-extern NSString* previewStringForSettings(NSDictionary* settings);
+- (PSSpecifier *)catalogRetrySpecifier
+{
+	PSSpecifier *retry = [PSSpecifier preferenceSpecifierNamed:VDTLoc(self.class, @"Retry")
+		target:self set:nil get:nil detail:nil cell:PSButtonCell edit:nil];
+	[retry setButtonAction:@selector(refreshDaemonRecords)];
+	return retry;
+}
 
 - (id)previewStringForSpecifier:(PSSpecifier*)specifier
 {
-    return [valueForProcessConfigKey([specifier propertyForKey:@"daemonName"], @"enabled", nil, VDTConfigTypeDaemon) boolValue] ? @"Enabled" : @"";
+	return VDTListConfigurationEnabled([specifier propertyForKey:@"daemonName"], VDTConfigTypeDaemon, nil)
+		? VDTLoc(self.class, @"Configuration enabled") : @"";
 }
 
 - (void)reloadValueOfSelectedSpecifier
 {
-	UITableView* tableView = [self valueForKey:@"_table"];
-	for(NSIndexPath* selectedIndexPath in tableView.indexPathsForSelectedRows)
-	{
-		PSSpecifier* specifier = [self specifierAtIndex:[self indexForIndexPath:selectedIndexPath]];
-		[self reloadSpecifier:specifier];
-	}
+	// The previous index path may now belong to another group, or to no row.
+	[self reloadSpecifiers];
 }
 
-- (void)updateSuggestedDaemons
+- (void)daemonListDidUpdate:(VDTDaemonList*)list
 {
-	NSMutableSet* suggestedDaemons = [NSMutableSet new];
-
-	for(CHPDaemonInfo* info in [CHPDaemonList sharedInstance].daemonList)
+	// The enumerator currently delivers on main; also tolerate an off-main caller.
+	if (![NSThread isMainThread])
 	{
-		if([info.linkedFrameworkIdentifiers containsObject:@"com.apple.UIKit"])
-		{
-			[suggestedDaemons addObject:[info displayName]];
-		}
+		dispatch_async(dispatch_get_main_queue(), ^{ [self daemonListDidUpdate:list]; });
+		return;
 	}
-
-	_suggestedDaemons = [suggestedDaemons copy];
-}
-
-- (void)daemonListDidUpdate:(CHPDaemonList*)list
-{
-	[self updateSuggestedDaemons];
 	[self reloadSpecifiers];
 }
 

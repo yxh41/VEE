@@ -6,8 +6,9 @@
 #import "Common.h"
 
 typedef NS_ENUM(NSUInteger, VDTConfigType) {
-    VDTConfigTypeApp,
-    VDTConfigTypeDaemon
+    VDTConfigTypeApp = 0,
+    VDTConfigTypeDaemon = 1,
+    VDTConfigTypeExtension = 2
 };
 
 typedef NS_ENUM(NSUInteger, VDTViolationPolicy) {
@@ -31,6 +32,26 @@ id valueForProcessConfigKey(NSString *identifier, NSString *key, id defaultValue
 id valueForProcessConfigKeyWithPrefs(NSString *identifier, NSString *key, id defaultValue, VDTConfigType type, NSDictionary *prefs);
 void setValueForProcessConfigKey(NSString *identifier, NSString *key, id value, VDTConfigType type);
 void setValueForProcessConfigKeyWithPrefs(NSString *identifier, NSString *key, id value, VDTConfigType type, NSDictionary *prefs);
+// CPU field presence is independent of nice fields (including invalid values).
+BOOL VDTProcessConfigHasCPUFields(NSDictionary *entry);
+// Extension presence means CPU fields, not merely an extensionConfigs record.
+BOOL VDTHasProcessConfig(NSString *identifier, VDTConfigType type, NSDictionary *prefs);
+// App/Daemon: removes records. Extension: clears only CPU fields on every
+// matching record, preserving nice/unknown fields and all resource sections.
+void VDTRemoveProcessConfig(NSString *identifier, VDTConfigType type);
+// Extension CPU Follow reports atomic save failure; no notification on failure.
+BOOL VDTRemoveExtensionCPUConfigReportingResult(NSString *identifier);
+
+// Independent per-resource rule storage. memoryRules / jetsamRules sections
+// mirror appConfigs/daemonConfigs/extensionConfigs but never share a record
+// with the CPU parameters; every record carries a schema marker.
+id valueForProcessResourceRuleKey(NSString *identifier, NSString *key, id defaultValue, VDTConfigType type, NSString *sectionKey);
+id valueForProcessResourceRuleKeyWithPrefs(NSString *identifier, NSString *key, id defaultValue, VDTConfigType type, NSString *sectionKey, NSDictionary *prefs);
+BOOL setValueForProcessResourceRuleKey(NSString *identifier, NSString *key, id value, VDTConfigType type, NSString *sectionKey);
+BOOL setValueForProcessResourceRuleKeyWithPrefs(NSString *identifier, NSString *key, id value, VDTConfigType type, NSString *sectionKey, NSDictionary *prefs);
+BOOL VDTHasProcessResourceRule(NSString *identifier, VDTConfigType type, NSString *sectionKey, NSDictionary *prefs);
+// Removes every matching record so inheritance can be restored deliberately.
+void VDTRemoveProcessResourceRule(NSString *identifier, VDTConfigType type, NSString *sectionKey);
 
 #ifdef __cplusplus
 }

@@ -1,4 +1,18 @@
 #!/bin/bash
+set -u
+# Resume is advisory. A control failure must never leave dpkg half-configured;
+# the journal stays on disk and the runtime reloads it on the next launch.
+if command -v jbroot >/dev/null 2>&1; then
+    ctl="$(jbroot)/usr/libexec/vedette-nicectl"
+    if [ -x "$ctl" ]; then
+        "$ctl" resource-resume || echo "Vedette: resource resume failed (errno=$?); journal retained." >&2
+        "$ctl" resume || echo "Vedette: nice resume failed (errno=$?); continuing package configuration." >&2
+    else
+        echo 'Vedette: nice control tool missing; continuing package configuration.' >&2
+    fi
+else
+    echo 'Vedette: cannot resolve nice control path; continuing package configuration.' >&2
+fi
 
 echo "Killing runningboardd..."
 killall -9 runningboardd || true

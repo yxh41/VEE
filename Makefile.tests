@@ -1,0 +1,67 @@
+# CPU / UI-only 2.1 regressions; no device/App frameworks required.
+CC ?= cc
+CFLAGS ?= -std=c11 -O2 -Wall -Wextra -Werror
+
+.PHONY: test-cpu test-ui test-nice test-extensions test-rebuild test
+
+test-cpu:
+	@set -eu; bin=$$(mktemp); trap 'rm -f "$$bin"' EXIT HUP INT TERM; \
+	  $(CC) $(CFLAGS) -I. tests/test_diagnostics_lazy.c -o "$$bin"; "$$bin"
+	@set -eu; bin=$$(mktemp); trap 'rm -f "$$bin"' EXIT HUP INT TERM; \
+	  $(CC) $(CFLAGS) -DVDT_DIAGNOSTICS_ENABLED=1 -I. tests/test_diagnostics_lazy.c -o "$$bin"; "$$bin"
+	@python3 -B tests/test_efficiency_contracts.py
+	@python3 -B tests/test_diagnostic_preprocess.py
+
+
+test-ui:
+	@python3 -B tests/test_ui21_baseline.py
+	@python3 -B tests/test_process_action_ui21.py
+	@python3 -B tests/test_section_text.py
+	@python3 -B tests/test_preferences_ui.py
+	@python3 -B tests/test_ios15_cell_lifecycle.py
+	@python3 -B tests/test_package_identity.py
+	@sh tests/run_list_order_tests.sh
+	@python3 -B tests/test_list_catalog.py
+	@python3 -B tests/test_list_catalog_native.py; rc=$$?; test "$$rc" = 0 -o "$$rc" = 77
+	@python3 -B tests/test_list_reentry.py; rc=$$?; test "$$rc" = 0 -o "$$rc" = 77
+
+
+test-nice:
+	@set -eu; bin=$$(mktemp); trap 'rm -f "$$bin"' EXIT HUP INT TERM; \
+	  $(CC) $(CFLAGS) -I. VDTNicePolicy.c tests/test_nice_policy.c -o "$$bin"; "$$bin"
+	@set -eu; bin=$$(mktemp); trap 'rm -f "$$bin"' EXIT HUP INT TERM; \
+	  $(CC) $(CFLAGS) -I. VDTNiceStore.c tests/test_nice_store.c -o "$$bin"; $(STORE_RUNNER) "$$bin"
+	@python3 -B tests/test_nice_attempt.py
+	@python3 -B tests/test_nice_contracts.py
+	@python3 -B tests/test_nice_packaging.py
+	@python3 -B tests/test_nice_tool.py
+	@python3 -B tests/test_release_support.py
+	@python3 -B tests/test_springboard_support.py
+
+
+test-extensions:
+	@python3 -B tests/test_extension_contracts.py
+	@python3 -B tests/test_bundle_rules.py
+	@python3 -B tests/check_auto_monitor_path.py
+	@python3 -B tests/test_extensions_native.py; rc=$$?; test "$$rc" = 0 -o "$$rc" = 77
+	@python3 -B tests/test_extension_nice_native.py; rc=$$?; test "$$rc" = 0 -o "$$rc" = 77
+	@python3 -B tests/test_independent_rules_native.py --static-only
+
+
+test-rebuild:
+	@python3 -B tests/test_resource_manager.py
+	@python3 -B tests/test_resource_ui21.py
+	@python3 -B tests/test_resource_preferences_native.py --static-only
+	@python3 -B tests/test_rebuild_baseline.py
+	@python3 -B tests/test_formal_projection.py
+
+
+test-resource-write:
+	@set -eu; bin=$$(mktemp); trap 'rm -f "$$bin"' EXIT HUP INT TERM; \
+	  $(CC) $(CFLAGS) -I. VDTResourceSystemIO.c VDTProcessIdentity.c VDTMemoryPolicy.c VDTJetsamPolicy.c tests/test_resource_system_io.c -o "$$bin"; "$$bin"
+	@python3 -B tests/test_memory_policy.py
+	@python3 -B tests/test_resource_apply.py
+	@python3 -B tests/test_resource_writeback_contracts.py
+
+
+test: test-cpu test-ui test-nice test-extensions test-rebuild test-resource-write

@@ -1,0 +1,204 @@
+#!/usr/bin/env python3
+"""Manager-side resource integration contracts (source level, not a runtime test).
+
+Pins: independent memoryRules/jetsamRules loading with frozen-core validation,
+per-resource inheritance selection, resource-only target reachability, the
+capability-gated apply stage with its NULL production backend, and the
+Vedette.xm call sites. Negative controls must be rejected by the same gates.
+"""
+from pathlib import Path
+import unittest
+
+from extension_projection import projected_bytes, assert_ui21_freeze
+from extension_projection import function_source
+
+ROOT = Path(__file__).resolve().parents[1]
+MANAGER = ROOT / 'VDTProcessManager.mm'
+HEADER = ROOT / 'VDTProcessManager.h'
+RUNTIME = ROOT / 'Vedette.xm'
+
+
+def has(text, *tokens):
+    for token in tokens:
+        assert token in text, 'missing manager evidence: ' + token
+
+
+def manager_contract(manager):
+    # Rule loading and typed classification.
+    has(manager,
+        'for (NSString *sectionKey in @[@"memoryRules", @"jetsamRules"]) {',
+        '@"bundleIdentifier", VDTConfigTypeApp, globallyEnabled',
+        '@"daemonName", VDTConfigTypeDaemon, globallyEnabled',
+        '@"extensionIdentifier", VDTConfigTypeExtension, globallyEnabled',
+        'VDTPolicyRecordState state = VDTPolicyRecordInvalid;',
+        'state = VDTPolicyRecordDisabled;',
+        'resource_memory_core_rule(validatedEntry, VDTPolicyRecordEnabled).parseStatus',
+        'resource_jetsam_core_rule(validatedEntry, VDTPolicyRecordEnabled).parseStatus',
+        '@"state": @(state),',
+        'VDTPolicyInputBoolean', 'VDTPolicyInputFloatingPoint',
+        'VDTPolicyInputOverflow', 'VDTPolicyInputString')
+    # Index, presence and selection.
+    assert manager.count('if (!map[identifier]) map[identifier] = rule;') == 2, \
+        'both app and extension indexes must be first-entry-wins'
+    has(manager,
+        'typedef struct VDTResourceRuleMaps {',
+        'if (!map[identifier]) map[identifier] = rule;',
+        'static BOOL resource_maps_empty(VDTResourceRuleMaps maps){',
+        'NSDictionary *extensionRule = extensionRulesById[extensionIdentifier];',
+        'if (extensionRule) return extensionRule;')
+    daemon = function_source(manager, 'static NSDictionary *resource_rule_for_daemon')
+    has(daemon, 'if (!configured) continue;', 'if (VDTSpringBoardRuleName(configured)) {',
+        'if (VDTSpringBoardRuleMatches(configured, executablePath)) return rule;',
+        'if (VDTProcessNameMatches(configured, executableName, procComm)) return rule;')
+    assert daemon.index('VDTSpringBoardRuleMatches(') < daemon.index('VDTProcessNameMatches(')
+    target = function_source(manager, 'static NSDictionary *target_for_pid')
+    resources = target[target.index('NSDictionary *memoryRule = nil;'):target.index('BOOL hasResourceIntent')]
+    has(resources, '(!extensionPath || extensionIdentifier)',
+        'else if (!extensionPath && !bundlePath &&')
+    assert 'return nil;' not in resources, 'resource identity failure must not drop CPU target'
+    # Resolution: resource-only targets survive and carry their intents.
+    has(manager,
+        'BOOL hasResourceIntent = memoryRule != nil || jetsamRule != nil;',
+        'if (!matched && !hasResourceIntent) return nil;',
+        'typeValue = resourceIdentityType;',
+        'enabledValue = @NO;',
+        'if (memoryRule) target[VDTTargetMemoryRuleKey] = memoryRule;',
+        'if (jetsamRule) target[VDTTargetJetsamRuleKey] = jetsamRule;',
+        'NSArray<NSDictionary *>* vdt_resolve_targets(NSArray<NSDictionary *> *configs, NSArray<NSDictionary *> *resourceRules){',
+        'NSArray<NSDictionary *>* vdt_targets_for_pid(pid_t pid, NSArray<NSDictionary *> *configs, NSArray<NSDictionary *> *resourceRules){',
+        'VDTResourceRuleMaps resourceMaps = resource_rule_maps(resourceRules);')
+    # Actual policy writes live in the durable coordinator, not in CPU dedup.
+    has(manager,
+        '#import "VDTResourceRuntime.h"',
+        'BOOL vdt_apply_resource_target(NSDictionary *rawTarget){',
+        'return vdt_resource_apply(target, memoryRule ? &memoryCore : NULL, jetsamRule ? &jetsamCore : NULL);',
+        '.rawSourceDarwinMajor = resource_policy_integer(rule[@"sourceDarwinMajor"])')
+    assert 'memorystatus_control(' not in manager
+    apply_body = function_source(manager, 'BOOL vdt_apply_target(NSDictionary *rawTarget)')
+    assert 'return result.success;' in apply_body
+    assert 'vdt_apply_resource_target(' not in apply_body, 'CPU dedup must not own resource dispatch'
+
+
+def header_contract(header):
+    has(header,
+        'extern NSString * const VDTTargetMemoryRuleKey;',
+        'extern NSString * const VDTTargetJetsamRuleKey;',
+        'NSArray<NSDictionary *>* vdt_resource_rules_from_prefs(NSDictionary *prefs);',
+        'NSArray<NSDictionary *>* vdt_resolve_targets(NSArray<NSDictionary *> *configs, NSArray<NSDictionary *> *resourceRules);',
+        'NSArray<NSDictionary *>* vdt_targets_for_pid(pid_t pid, NSArray<NSDictionary *> *configs, NSArray<NSDictionary *> *resourceRules);')
+
+
+def runtime_contract(runtime):
+    has(runtime,
+        'static NSArray<NSDictionary *> *normalized_resource_rules_snapshot;',
+        'current_normalized_resource_rules_sync(void){',
+        'vdt_resource_rules_from_prefs(VDTGetPrefs())',
+        'vdt_resolve_targets(configs, current_normalized_resource_rules_sync());',
+        'vdt_targets_for_pid(pid, configs, current_normalized_resource_rules_sync());',
+        'NSArray<NSDictionary *> *resourceRules = vdt_resource_rules_from_prefs(newPrefs);',
+        'normalized_resource_rules_snapshot = [resourceRules copy];',
+        'vdt_resolve_targets(configs, resourceRules);',
+        'vdt_resolve_targets(restoreConfigs, vdt_resource_rules_from_prefs(getTempPrefs()))',
+        '[restoreTarget removeObjectForKey:VDTTargetMemoryRuleKey];',
+        '[restoreTarget removeObjectForKey:VDTTargetJetsamRuleKey];',
+        'for (NSDictionary *target in vdt_nice_resolve_targets(prefs))',
+        'vdt_nice_apply(target);')
+    independent = function_source(runtime, 'static void apply_resource_targets_sync')
+    has(independent, '\n    for (NSDictionary *target in targets) vdt_apply_resource_target(target);\n',
+        'vdt_resource_reconcile(targets);', 'vdt_resource_publish();', 'schedule_resource_retry_sync();')
+    has(runtime, 'vdt_resource_reload(newPrefs);', 'invalidate_resource_retry_sync();',
+        'apply_resource_targets_sync(targets, YES);', 'apply_resource_targets_sync(targets, NO);')
+    retry = function_source(runtime, 'static void niceRefreshCallback')
+    assert 'vdt_resolve_targets' not in retry and 'vdt_resource_rules_from_prefs' not in retry, 'nice retry cannot own CPU/resource resolution'
+    for stale in ('vdt_resolve_targets(configs);', 'vdt_targets_for_pid(pid, configs);'):
+        assert stale not in runtime, 'stale pre-resource call remains: ' + stale
+
+
+class ResourceManagerIntegration(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.manager = MANAGER.read_text()
+        cls.header = HEADER.read_text()
+        cls.runtime = RUNTIME.read_text()
+
+    def test_contracts(self):
+        manager_contract(self.manager)
+        header_contract(self.header)
+        runtime_contract(self.runtime)
+
+    def test_reviewed_paths_project_to_ui21_baseline(self):
+        for path in ('VDTProcessManager.mm', 'VDTProcessManager.h', 'Vedette.xm'):
+            with self.subTest(file=path):
+                assert_ui21_freeze(path)
+
+    def test_stale_resolve_call_is_rejected(self):
+        mutated = self.runtime.replace(
+            'vdt_resolve_targets(configs, current_normalized_resource_rules_sync());',
+            'vdt_resolve_targets(configs);', 1)
+        self.assertNotEqual(mutated, self.runtime)
+        with self.assertRaises(AssertionError):
+            runtime_contract(mutated)
+
+    def test_bad_extension_resource_inheritance_is_rejected(self):
+        mutated = self.manager.replace('(!extensionPath || extensionIdentifier)', 'YES', 1)
+        self.assertNotEqual(mutated, self.manager)
+        with self.assertRaises(AssertionError): manager_contract(mutated)
+
+    def test_app_to_daemon_resource_fallback_is_rejected(self):
+        mutated = self.manager.replace('else if (!extensionPath && !bundlePath &&', 'else if (', 1)
+        self.assertNotEqual(mutated, self.manager)
+        with self.assertRaises(AssertionError): manager_contract(mutated)
+
+    def test_reserved_daemon_basename_matching_is_rejected(self):
+        mutated = self.manager.replace('if (VDTSpringBoardRuleMatches(configured, executablePath)) return rule;',
+                                      'if (VDTProcessNameMatches(configured, executableName, procComm)) return rule;', 1)
+        self.assertNotEqual(mutated, self.manager)
+        with self.assertRaises(AssertionError): manager_contract(mutated)
+
+    def test_cpu_resource_coupled_nice_retry_is_rejected(self):
+        mutated = self.runtime.replace(
+            'for (NSDictionary *target in vdt_nice_resolve_targets(prefs))',
+            'for (NSDictionary *target in vdt_resolve_targets(vdt_configs_from_prefs(prefs), vdt_resource_rules_from_prefs(prefs)))', 1)
+        self.assertNotEqual(mutated, self.runtime)
+        with self.assertRaises(AssertionError): runtime_contract(mutated)
+
+    def test_open_capability_is_rejected(self):
+        backend = (ROOT / 'VDTResourceSystemBackend.mm').read_text()
+        self.assertIn('bool enabled = supported(NULL);', backend)
+        mutated = backend.replace('bool enabled = supported(NULL);', 'bool enabled = true;', 1)
+        self.assertNotEqual(mutated, backend)
+        self.assertNotIn('bool enabled = supported(NULL);', mutated)
+        # Runtime transport tests additionally prove the unknown-system branch
+        # issues zero SET; this source negative pins the production adapter.
+
+    def test_cpu_gated_resource_stage_is_rejected(self):
+        mutated = self.runtime.replace(
+            '\n    for (NSDictionary *target in targets) vdt_apply_resource_target(target);\n',
+            '\n    if (NO) for (NSDictionary *target in targets) vdt_apply_resource_target(target);\n', 1)
+        self.assertNotEqual(mutated, self.runtime)
+        with self.assertRaises(AssertionError):
+            runtime_contract(mutated)
+
+    def test_last_entry_wins_index_is_rejected(self):
+        mutated = self.manager.replace('if (!map[identifier]) map[identifier] = rule;', 'map[identifier] = rule;')
+        self.assertNotEqual(mutated, self.manager)
+        with self.assertRaises(AssertionError):
+            manager_contract(mutated)
+
+    def test_dropped_resource_only_gate_is_rejected(self):
+        mutated = self.manager.replace('if (!matched && !hasResourceIntent) return nil;', 'if (!matched) return nil;', 1)
+        self.assertNotEqual(mutated, self.manager)
+        with self.assertRaises(AssertionError):
+            manager_contract(mutated)
+
+    def test_typed_classifier_downgrade_is_rejected(self):
+        mutated = self.manager.replace(
+            'if (!isfinite(numericValue)) return (VDTPolicyInteger){VDTPolicyInputOverflow, 0};',
+            'if (!isfinite(numericValue)) return (VDTPolicyInteger){VDTPolicyInputInteger, (long long)numericValue};', 1)
+        self.assertNotEqual(mutated, self.manager)
+        with self.assertRaises(AssertionError):
+            manager_contract(mutated)
+
+
+if __name__ == '__main__':
+    unittest.main(verbosity=2)
