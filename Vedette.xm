@@ -24,16 +24,13 @@ static dispatch_queue_t vedette_serial_queue(){
 
 #pragma mark - Darwin notification helpers
 
-// Post a PID via Darwin notification state. Called by non-runningboardd processes
-// to self-report their PID when they match the user's config.
-static void notify_new_pid(const char *notificationName, uint64_t pid){
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
-        int token = 0;
-        notify_register_check(notificationName, &token);
-        notify_set_state(token, pid);
-        notify_cancel(token);
-        notify_post(notificationName);
-    });
+// Signal runningboardd that the process set may have changed.
+// We deliberately do NOT carry the pid in a shared notify state slot: when several
+// processes launch in a burst they overwrite each other's value and runningboardd
+// would only observe the last one. Instead runningboardd performs a coalesced full
+// rescan, which cannot lose a pid to that race.
+static void notify_proc_changed(void){
+    notify_post(NOTIFY_PID_NN);
 }
 
 #pragma mark runningboardd
@@ -56,10 +53,14 @@ static void reloadPrefsSync(){
     NSMutableArray *violationPolicies = [NSMutableArray array];
 
     NSArray *appConfigs = newPrefs[@"appConfigs"];
+    if (![appConfigs isKindOfClass:[NSArray class]]) appConfigs = @[];
     HBLogDebug(@"appConfigs: %@", appConfigs);
     
     for (NSUInteger idx = 0; idx < appConfigs.count; idx++){
-        NSString *bundleIdentifier = appConfigs[idx][@"bundleIdentifier"];
+        id entry = appConfigs[idx];
+        if (![entry isKindOfClass:[NSDictionary class]]) continue;
+        NSString *bundleIdentifier = entry[@"bundleIdentifier"];
+        if (![bundleIdentifier isKindOfClass:[NSString class]] || bundleIdentifier.length == 0) continue;
         if ([bundleIdentifier isEqualToString:@"com.apple.Preferences"]){
             continue;
         }
@@ -75,10 +76,14 @@ static void reloadPrefsSync(){
     }
     
     NSArray *daemonConfigs = newPrefs[@"daemonConfigs"];
+    if (![daemonConfigs isKindOfClass:[NSArray class]]) daemonConfigs = @[];
     HBLogDebug(@"daemonConfigs: %@", daemonConfigs);
     
     for (NSUInteger idx = 0; idx < daemonConfigs.count; idx++){
-        NSString *daemonName = daemonConfigs[idx][@"daemonName"];
+        id entry = daemonConfigs[idx];
+        if (![entry isKindOfClass:[NSDictionary class]]) continue;
+        NSString *daemonName = entry[@"daemonName"];
+        if (![daemonName isKindOfClass:[NSString class]] || daemonName.length == 0) continue;
         [identifiers addObject:daemonName];
         [types addObject:@(VDTConfigTypeDaemon)];
         int percentage = [valueForProcessConfigKeyWithPrefs(daemonName, @"percentage", @80, VDTConfigTypeDaemon, newPrefs) intValue];
@@ -111,6 +116,27 @@ static void reloadPrefsSync(){
 static void reloadPrefs(){
     dispatch_async(vedette_serial_queue(), ^{
         reloadPrefsSync();
+    });
+}
+
+#pragma mark - Coalesced rescan on process-start signal
+
+// Multiple processes may post NOTIFY_PID_NN in a burst. Coalesce them into a
+// single full rescan so we neither lose pids nor hammer proc_listpids. Only
+// touched on vedette_serial_queue, so no lock needed.
+static BOOL rescanPending = NO;
+static void scheduleRescan(void){
+    if (rescanPending) return;
+    rescanPending = YES;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), vedette_serial_queue(), ^{
+        rescanPending = NO;
+        reloadPrefsSync();
+    });
+}
+
+static void onProcChanged(){
+    dispatch_async(vedette_serial_queue(), ^{
+        scheduleRescan();
     });
 }
 
@@ -168,13 +194,9 @@ static void restoreAllMonitors(){
                         // --- runningboardd path ---
                         // Load prefs and apply monitoring to already-running processes
                         reloadPrefs();
-                        // Listen for PID self-reports from other processes
+                        // A process-start signal triggers a coalesced full rescan.
                         notify_register_dispatch(NOTIFY_PID_NN, &notify_pid_token, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(int token) {
-                            uint64_t pid = 0;
-                            notify_get_state(token, &pid);
-                            if (pid > 0){
-                                received_new_proc((pid_t)pid);
-                            }
+                            onProcChanged();
                         });
                         CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL, (CFNotificationCallback)reloadPrefs, (CFStringRef)PREFS_CHANGED_NN, NULL, CFNotificationSuspensionBehaviorDeliverImmediately);
                         CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL, (CFNotificationCallback)restoreAllMonitors, (CFStringRef)RESTORE_ALL_MONITORS_NN, NULL, CFNotificationSuspensionBehaviorDeliverImmediately);
@@ -189,8 +211,8 @@ static void restoreAllMonitors(){
                             HBLogDebug(@"Yeah, just no.");
                             return;
                         }
-                        HBLogDebug(@"Notify new pid: %d", [procInfo processIdentifier]);
-                        notify_new_pid(NOTIFY_PID_NN, [procInfo processIdentifier]);
+                        HBLogDebug(@"Notify proc changed: %d", [procInfo processIdentifier]);
+                        notify_proc_changed();
                     }
                     
                 }
