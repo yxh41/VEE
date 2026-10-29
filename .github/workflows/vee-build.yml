@@ -4,6 +4,7 @@
 # This mirror is a content copy (not a fork), so those objects do not exist.
 # Product-quality verification (dpkg-deb / Mach-O / hooks / localization) is
 # fully kept in the package job below; only the history-bound gate is removed.
+# Only the roothide/arm64e package is built (target: iOS 16.4.1 roothide).
 name: VEE package (self-contained)
 
 on:
@@ -38,9 +39,6 @@ jobs:
           - scheme: roothide
             package_arch: iphoneos-arm64e
             prefix: ''
-          - scheme: rootless
-            package_arch: iphoneos-arm64
-            prefix: '/var/jb'
 
     env:
       THEOS: ${{ github.workspace }}/theos
