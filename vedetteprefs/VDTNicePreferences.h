@@ -21,4 +21,5 @@ id VDTNicePreferenceValueWithPrefs(NSString *identifier, VDTConfigType type, NSS
 - (id)readPreferenceValue:(PSSpecifier *)specifier;
 - (void)setPreferenceValue:(id)value specifier:(PSSpecifier *)specifier;
 - (void)requestRetry;
+- (void)confirmFollowContainingAppNice;
 @end

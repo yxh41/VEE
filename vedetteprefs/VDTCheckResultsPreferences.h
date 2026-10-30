@@ -7,6 +7,7 @@
 - (instancetype)initWithOwner:(VDTProcessConfiguration *)owner;
 - (NSArray<PSSpecifier *> *)specifiers;
 - (void)refreshDisplay;
+- (void)requestNiceRetry;
 - (void)markNicePending;
 - (void)niceResultDidChange;
 @end
