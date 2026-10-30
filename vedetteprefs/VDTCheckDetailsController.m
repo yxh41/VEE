@@ -44,8 +44,13 @@
             NSDictionary *model = models[index];
             PSSpecifier *group = [PSSpecifier preferenceSpecifierNamed:model[@"title"]
                 target:nil set:nil get:nil detail:nil cell:PSGroupCell edit:nil];
-            if (index + 1 == end)
-                [group setProperty:VDTLoc(self.class, @"Historical receipt, not live monitoring. Refresh only reloads saved results.") forKey:@"footerText"];
+            if (index + 1 == end) {
+                // The diagnostics page exposes raw enum codes, so its footer carries the legend.
+                NSString *footer = [self showsDiagnostics]
+                    ? @"Historical receipt, not live monitoring. Refresh only reloads saved results. Not recorded = this run produced no value for the field. No = the write executor never ran. Execution skip: 0 none / 1 no write needed / 2 unknown OS / 3 policy refused / 4 capability missing / 5 no original value / 6 identity mismatch / 7 readback failed / 8 backend missing / 9 value drifted. Outcome: 0 none / 1 applied / 2 applied unverified / 3 failed / 4 skipped / 5 restored / 6 restore unconfirmed."
+                    : @"Historical receipt, not live monitoring. Refresh only reloads saved results.";
+                [group setProperty:VDTLoc(self.class, footer) forKey:@"footerText"];
+            }
             [rows addObject:group];
             for (NSDictionary *field in model[[self fieldCollection]]) {
                 PSSpecifier *row = VDTCheckFieldSpecifier(field);

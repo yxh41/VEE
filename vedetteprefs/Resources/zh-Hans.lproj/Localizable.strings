@@ -30,7 +30,7 @@
 "Loading…" = "正在加载…";
 "Manage" = "管理";
 "Monitor" = "监控";
-"No" = "取消";
+"No" = "否";
 "No Applications" = "暂无应用";
 "No Daemons" = "暂无守护进程";
 "No Results" = "没有匹配的结果";
@@ -68,7 +68,7 @@
 "Vedette" = "Vedette";
 "Vedette by udevs. App lists use AltList; daemon discovery is based on Choicy. This interface is maintained by doimty." = "Vedette 原作者为 udevs。应用列表使用 AltList，守护进程发现基于 Choicy。此界面由 doimty 维护。";
 "Violation Policy Selection" = "超限处理";
-"Yes" = "确定";
+"Yes" = "是";
 "⚠️WARNING⚠️" = "⚠️警告⚠️";
 "Enable CPU limits" = "启用 CPU 限制";
 "Scheduling priority (nice)" = "调度优先级（nice）";
@@ -173,6 +173,7 @@
 "Check details" = "详细信息";
 "Refresh display" = "刷新显示";
 "Historical receipt, not live monitoring. Refresh only reloads saved results." = "历史回执，非实时监控。刷新仅更新显示。";
+"Historical receipt, not live monitoring. Refresh only reloads saved results. Not recorded = this run produced no value for the field. No = the write executor never ran. Execution skip: 0 none / 1 no write needed / 2 unknown OS / 3 policy refused / 4 capability missing / 5 no original value / 6 identity mismatch / 7 readback failed / 8 backend missing / 9 value drifted. Outcome: 0 none / 1 applied / 2 applied unverified / 3 failed / 4 skipped / 5 restored / 6 restore unconfirmed." = "历史回执，非实时监控。刷新仅更新显示。「未记录」＝本次运行该字段没有产生值；「否」＝未真正执行写入。执行跳过码：0 无跳过 / 1 无需写入 / 2 未知系统 / 3 策略拒绝 / 4 能力缺失 / 5 无原值 / 6 身份不匹配 / 7 读回失败 / 8 后端缺失 / 9 值漂移冲突。执行结果码：0 无 / 1 已生效 / 2 已生效未确认 / 3 失败 / 4 跳过 / 5 已还原 / 6 已还原未确认。";
 "Check time not recorded" = "检查时间未记录";
 "Not recorded" = "未记录";
 "Unlimited / Unlimited" = "无限 / 无限";
