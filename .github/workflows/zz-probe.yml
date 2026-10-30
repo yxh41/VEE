@@ -1,0 +1,14 @@
+name: zz-probe
+on:
+  workflow_dispatch:
+jobs:
+  probe-14:
+    name: probe macos-14
+    runs-on: macos-14
+    steps:
+      - run: echo "HELLO FROM MACOS-14"
+  probe-15:
+    name: probe macos-15
+    runs-on: macos-15
+    steps:
+      - run: echo "HELLO FROM MACOS-15"
