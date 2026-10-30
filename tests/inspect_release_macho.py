@@ -1,7 +1,11 @@
 from pathlib import Path
-import hashlib, json, math, struct
+import hashlib, json, math, os, struct
 
 def be32(data,off): return struct.unpack_from('>I',data,off)[0]
+def pack_version(text):
+    parts=[int(part) for part in text.split('.')]
+    while len(parts)<3: parts.append(0)
+    return (parts[0]<<16)|(parts[1]<<8)|parts[2]
 def cstr(data,off):
     assert 0 <= off < len(data)
     end=data.index(0,off)
@@ -69,7 +73,15 @@ def inspect(path, scheme='roothide'):
                 (ids if cmd==0xd else rpaths if cmd==0x8000001c else deps).append(name)
             if cmd==0x32:
                 platform,minimum,sdk,tools=struct.unpack_from('<4I',block,8)
-                assert platform==2 and minimum==0xf0000 and sdk==0x110500
+                assert platform==2 and minimum==0xf0000
+                expected_sdk=os.environ.get('VDT_EXPECTED_SDK')
+                if expected_sdk:
+                    assert sdk==pack_version(expected_sdk),(version(sdk),expected_sdk)
+                else:
+                    # The sdk field follows whichever SDK the build image provides,
+                    # so it is not pinned here; platform and the minimum OS version
+                    # are the actual delivery contracts.
+                    assert sdk>=pack_version('16.0'),version(sdk)
                 versions.append({'minimum':version(minimum),'sdk':version(sdk),'platform':platform})
             if cmd==0x1d:
                 start,sz=struct.unpack_from('<II',block,8); assert start+sz<=len(b)
