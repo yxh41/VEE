@@ -114,7 +114,7 @@ id VDTNicePreferenceValueWithPrefs(NSString *identifier, VDTConfigType type, NSS
             target:nil set:nil get:nil detail:nil cell:PSGroupCell edit:nil];
         NSString *footer = [self isProtectedTarget]
             ? VDTLoc(self.class, @"Nice cannot be enabled for this protected process. The value can still be saved.")
-            : VDTLoc(self.class, @"Nice is independent of CPU limits. Turning this switch off restores the captured original value, not necessarily 0. Lower values have higher priority.");
+            : VDTLoc(self.class, @"Nice is independent of CPU limits. Range -20 (highest priority) to 20 (lowest); 0 is the default. Turning this switch off restores the captured original value, not necessarily 0.");
         [niceGroup setProperty:footer forKey:@"footerText"];
         [_specifiers addObject:niceGroup];
 

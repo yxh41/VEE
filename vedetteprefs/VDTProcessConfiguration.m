@@ -261,7 +261,7 @@ static NSNumber *VDTResourceRuleInput(id value, id key, id section) {
 
         //Memory rule
         PSSpecifier *memoryGroupSpec = [PSSpecifier preferenceSpecifierNamed:VDTLoc(self.class, @"Memory") target:nil set:nil get:nil detail:nil cell:PSGroupCell edit:nil];
-        [memoryGroupSpec setProperty:VDTLoc(self.class, @"Saved memory rules apply when this switch is on. 0 restores the recorded value; -1 on both sides removes the per-process limit; positive pairs are hard MiB limits. Mixed modes are not supported.") forKey:@"footerText"];
+        [memoryGroupSpec setProperty:VDTLoc(self.class, @"Both fields must use the same mode: two positive values set hard MiB limits; -1 on both removes the limit; 0 restores the recorded value. Mixing modes (0 with a positive value) is rejected and nothing is written.") forKey:@"footerText"];
         [rootSpecifiers addObject:memoryGroupSpec];
 
         PSSpecifier *memoryEnabledSpec = [PSSpecifier preferenceSpecifierNamed:VDTLoc(self.class, @"Enable memory rule") target:self set:@selector(setResourceRuleValue:specifier:) get:@selector(readResourceRuleValue:) detail:nil cell:PSSwitchCell edit:nil];
@@ -291,7 +291,7 @@ static NSNumber *VDTResourceRuleInput(id value, id key, id section) {
 
         //Reclaim priority rule
         PSSpecifier *jetsamGroupSpec = [PSSpecifier preferenceSpecifierNamed:VDTLoc(self.class, @"Reclaim priority") target:nil set:nil get:nil detail:nil cell:PSGroupCell edit:nil];
-        [jetsamGroupSpec setProperty:VDTLoc(self.class, @"Saved reclaim-priority rules apply when this switch is on. 0 = idle; disabling restores recorded values. Reserved and special bands are not applied. Observed effective priority may differ. High priority does not prevent memory-limit termination.") forKey:@"footerText"];
+        [jetsamGroupSpec setProperty:VDTLoc(self.class, @"Only defined bands are applied: 0 idle · 30 background · 50 phone · 80 UI support · 100 foreground · 120 audio · 160 home · 180 important · 190 critical · 210 maximum. Reserved bands (1–9, 10, 20, 75) and other unnamed values are rejected. -1 restores the recorded band.") forKey:@"footerText"];
         [rootSpecifiers addObject:jetsamGroupSpec];
 
         PSSpecifier *jetsamEnabledSpec = [PSSpecifier preferenceSpecifierNamed:VDTLoc(self.class, @"Enable reclaim priority rule") target:self set:@selector(setResourceRuleValue:specifier:) get:@selector(readResourceRuleValue:) detail:nil cell:PSSwitchCell edit:nil];
@@ -304,7 +304,7 @@ static NSNumber *VDTResourceRuleInput(id value, id key, id section) {
         PSTextFieldSpecifier* jetsamBandSpec = [PSTextFieldSpecifier preferenceSpecifierNamed:VDTLoc(self.class, @"Priority band") target:self set:@selector(setResourceRuleValue:specifier:) get:@selector(readResourceRuleValue:) detail:nil cell:PSEditTextCell edit:nil];
         [jetsamBandSpec setKeyboardType:UIKeyboardTypeNumbersAndPunctuation autoCaps:UITextAutocapitalizationTypeNone autoCorrection:UITextAutocorrectionTypeNo];
         [jetsamBandSpec setProperty:(isPreferencesApp?@NO:@YES) forKey:@"enabled"];
-        [jetsamBandSpec setPlaceholder:@"16"];
+        [jetsamBandSpec setPlaceholder:@"180"];
         [jetsamBandSpec setProperty:@"priority" forKey:@"key"];
         [jetsamBandSpec setProperty:@"jetsamRules" forKey:@"vdtRuleSection"];
         [jetsamBandSpec setProperty:VDTLoc(self.class, @"Priority band") forKey:@"label"];

@@ -105,7 +105,7 @@
 "Current: %@" = "当前值：%@";
 "errno: %@" = "errno：%@";
 "Pending restores: %@" = "待恢复条目数：%@";
-"Nice is independent of CPU limits. Turning this switch off restores the captured original value, not necessarily 0. Lower values have higher priority." = "nice 与 CPU 限制独立。关闭此开关会恢复首次记录的原值，不是一律设为 0。数值越小，调度优先级越高。";
+"Nice is independent of CPU limits. Range -20 (highest priority) to 20 (lowest); 0 is the default. Turning this switch off restores the captured original value, not necessarily 0." = "nice 与 CPU 限制相互独立。范围 -20（最高优先级）到 20（最低），0 为默认。关闭此开关会恢复首次记录的原始值，不一定是 0。";
 "Read back: %@" = "回读值：%@";
 "Pending targets: %@" = "待处理目标：%@";
 "No verified running instance" = "未找到可验证的运行实例";
@@ -149,8 +149,8 @@
 "Unable to load App extensions." = "无法加载 App 扩展目录。";
 "Unable to load Daemons." = "无法加载守护目录。";
 "Refresh failed. Showing the previous list." = "刷新失败，继续显示上次的列表。";
-"Saved memory rules apply when this switch is on. 0 restores the recorded value; -1 on both sides removes the per-process limit; positive pairs are hard MiB limits. Mixed modes are not supported." = "开启本开关后应用保存的内存规则。0 恢复记录值；两侧都为 -1 时解除单进程上限；正数对表示 MiB 硬上限。不支持混合模式。";
-"Saved reclaim-priority rules apply when this switch is on. 0 = idle; disabling restores recorded values. Reserved and special bands are not applied. Observed effective priority may differ. High priority does not prevent memory-limit termination." = "开启本开关后应用保存的回收优先级规则。0 = idle；关闭规则恢复记录值。保留档位和特殊值不应用。实际读回档位可能不同。高优先级不能避免超出内存上限后被终止。";
+"Both fields must use the same mode: two positive values set hard MiB limits; -1 on both removes the limit; 0 restores the recorded value. Mixing modes (0 with a positive value) is rejected and nothing is written." = "两栏必须使用同一模式：两栏都填正数＝硬性 MiB 上限；两栏都填 -1＝解除上限；0＝恢复记录值。一栏 0、一栏正数属于混合模式，会被拒绝且不写入。";
+"Only defined bands are applied: 0 idle · 30 background · 50 phone · 80 UI support · 100 foreground · 120 audio · 160 home · 180 important · 190 critical · 210 maximum. Reserved bands (1–9, 10, 20, 75) and other unnamed values are rejected. -1 restores the recorded band." = "仅已定义档位生效：0 空闲 · 30 后台 · 50 电话 · 80 UI 支撑 · 100 前台 · 120 音频 · 160 主屏 · 180 重要 · 190 关键 · 210 最高。保留档（1–9、10、20、75）与其它未命名值会被拒绝。-1 恢复记录的档位。";
 "Resource readback matched" = "资源读回一致";
 "Recorded values restored" = "已恢复记录值";
 "Resources partially applied" = "资源部分生效";

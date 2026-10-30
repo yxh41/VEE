@@ -105,7 +105,7 @@
 "Current: %@" = "Current: %@";
 "errno: %@" = "errno: %@";
 "Pending restores: %@" = "Pending restores: %@";
-"Nice is independent of CPU limits. Turning this switch off restores the captured original value, not necessarily 0. Lower values have higher priority." = "Nice is independent of CPU limits. Turning this switch off restores the captured original value, not necessarily 0. Lower values have higher priority.";
+"Nice is independent of CPU limits. Range -20 (highest priority) to 20 (lowest); 0 is the default. Turning this switch off restores the captured original value, not necessarily 0." = "Nice is independent of CPU limits. Range -20 (highest priority) to 20 (lowest); 0 is the default. Turning this switch off restores the captured original value, not necessarily 0.";
 "Read back: %@" = "Read back: %@";
 "Pending targets: %@" = "Pending targets: %@";
 "No verified running instance" = "No verified running instance";
@@ -149,8 +149,8 @@
 "Unable to load App extensions." = "Unable to load App extensions.";
 "Unable to load Daemons." = "Unable to load Daemons.";
 "Refresh failed. Showing the previous list." = "Refresh failed. Showing the previous list.";
-"Saved memory rules apply when this switch is on. 0 restores the recorded value; -1 on both sides removes the per-process limit; positive pairs are hard MiB limits. Mixed modes are not supported." = "Saved memory rules apply when this switch is on. 0 restores the recorded value; -1 on both sides removes the per-process limit; positive pairs are hard MiB limits. Mixed modes are not supported.";
-"Saved reclaim-priority rules apply when this switch is on. 0 = idle; disabling restores recorded values. Reserved and special bands are not applied. Observed effective priority may differ. High priority does not prevent memory-limit termination." = "Saved reclaim-priority rules apply when this switch is on. 0 = idle; disabling restores recorded values. Reserved and special bands are not applied. Observed effective priority may differ. High priority does not prevent memory-limit termination.";
+"Both fields must use the same mode: two positive values set hard MiB limits; -1 on both removes the limit; 0 restores the recorded value. Mixing modes (0 with a positive value) is rejected and nothing is written." = "Both fields must use the same mode: two positive values set hard MiB limits; -1 on both removes the limit; 0 restores the recorded value. Mixing modes (0 with a positive value) is rejected and nothing is written.";
+"Only defined bands are applied: 0 idle · 30 background · 50 phone · 80 UI support · 100 foreground · 120 audio · 160 home · 180 important · 190 critical · 210 maximum. Reserved bands (1–9, 10, 20, 75) and other unnamed values are rejected. -1 restores the recorded band." = "Only defined bands are applied: 0 idle · 30 background · 50 phone · 80 UI support · 100 foreground · 120 audio · 160 home · 180 important · 190 critical · 210 maximum. Reserved bands (1–9, 10, 20, 75) and other unnamed values are rejected. -1 restores the recorded band.";
 "Resource readback matched" = "Resource readback matched";
 "Recorded values restored" = "Recorded values restored";
 "Resources partially applied" = "Resources partially applied";

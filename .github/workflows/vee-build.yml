@@ -45,7 +45,7 @@ jobs:
       THEOS_PACKAGE_SCHEME: ${{ matrix.scheme }}
       PACKAGE_ARCH: ${{ matrix.package_arch }}
       PACKAGE_PREFIX: ${{ matrix.prefix }}
-      PACKAGE_VERSION: 1.1.14-3
+      PACKAGE_VERSION: 1.1.14-4
       FINALPACKAGE: 1
       # PREFIX (toolchain bin dir) is derived from the selected Xcode at build time;
       # the old hardcoded Xcode_15.4 path does not exist on the macos-15 image.
