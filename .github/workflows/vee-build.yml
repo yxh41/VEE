@@ -31,7 +31,7 @@ on:
 jobs:
   package:
     name: Package (${{ matrix.scheme }})
-    runs-on: macos-14
+    runs-on: macos-15
     strategy:
       fail-fast: false
       matrix:
@@ -47,7 +47,8 @@ jobs:
       PACKAGE_PREFIX: ${{ matrix.prefix }}
       PACKAGE_VERSION: 1.1.14-3
       FINALPACKAGE: 1
-      PREFIX: /Applications/Xcode_15.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/
+      # PREFIX (toolchain bin dir) is derived from the selected Xcode at build time;
+      # the old hardcoded Xcode_15.4 path does not exist on the macos-15 image.
 
     steps:
       - name: Checkout
@@ -55,16 +56,16 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Select pinned Xcode 15.4
+      - name: Select pinned Xcode 16.4
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '16.4'
+
+      - name: Report toolchain
         run: |
-          sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
-          xcode_version="$(xcodebuild -version)"
-          test "${xcode_version%%$'\n'*}" = "Xcode 15.4"
-          test "$(xcrun --sdk iphoneos --show-sdk-version)" = "17.5"
-          printf '%s\n' "$xcode_version"
+          xcodebuild -version
           xcrun clang --version
           xcrun ld -version_details
-          xcrun --sdk iphoneos --show-sdk-version
 
       - name: Install packaging tools
         run: |
@@ -137,11 +138,12 @@ jobs:
         run: |
           set -o pipefail
           export PATH="/opt/homebrew/opt/make/libexec/gnubin:$THEOS/bin:$PATH"
+          export PREFIX="$(dirname "$(xcrun --find clang)")/"
+          # Compile against the pinned Theos iPhoneOS16.5 SDK instead of whatever
+          # iOS SDK the runner image ships, so the build is reproducible across images.
           test -d "$THEOS/sdks/iPhoneOS16.5.sdk"
-          system_sdk="$(xcrun --sdk iphoneos --show-sdk-path)"
-          test -d "$system_sdk"
-          make clean TARGET=iphone:clang:17.5:15.0 SYSROOT="$system_sdk"
-          make package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME="$THEOS_PACKAGE_SCHEME" TARGET=iphone:clang:17.5:15.0 SYSROOT="$system_sdk" 2>&1 | tee /tmp/vedette-build.log
+          make clean TARGET=iphone:clang:16.5:15.0 SYSROOT="$THEOS/sdks/iPhoneOS16.5.sdk"
+          make package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME="$THEOS_PACKAGE_SCHEME" TARGET=iphone:clang:16.5:15.0 SYSROOT="$THEOS/sdks/iPhoneOS16.5.sdk" 2>&1 | tee /tmp/vedette-build.log
           python3 -B tests/canonicalize_nice_deb.py "packages/com.doimty.vedette_${PACKAGE_VERSION}_${PACKAGE_ARCH}.deb" "$THEOS_PACKAGE_SCHEME"
 
       - name: Verify package artifact
@@ -184,7 +186,7 @@ jobs:
             ! grep -q 'LC_DYLD_INFO_ONLY' /tmp/vedette-load-commands.txt
             grep -q 'LC_CODE_SIGNATURE' /tmp/vedette-load-commands.txt
             test "$(awk '$1 == "minos" { print $2 }' /tmp/vedette-load-commands.txt | sort -u)" = "15.0"
-            test "$(awk '$1 == "sdk" { print $2 }' /tmp/vedette-load-commands.txt | sort -u)" = "17.5"
+            test "$(awk '$1 == "sdk" { print $2 }' /tmp/vedette-load-commands.txt | sort -u)" = "16.5"
           done
           python3 -B tests/verify_preferences_resources.py "/tmp/vedette-package$PACKAGE_PREFIX"
           python3 -B tests/verify_release_layout.py "$deb" "$THEOS_PACKAGE_SCHEME"
