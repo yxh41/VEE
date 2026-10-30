@@ -76,6 +76,7 @@
 "Nice value" = "Nice value";
 "Nice execution status" = "Nice execution status";
 "Check / retry nice" = "Check / retry nice";
+"Check / retry resource" = "Check / retry resource";
 "Nice cannot be enabled for this protected process. The value can still be saved." = "Nice cannot be enabled for this protected process. The value can still be saved.";
 "Nice is independent of CPU limits. Lower values mean higher scheduling priority; 0 does not enable interference." = "Nice is independent of CPU limits. Lower values mean higher scheduling priority; 0 does not enable interference.";
 "Waiting for execution result" = "Waiting for execution result";

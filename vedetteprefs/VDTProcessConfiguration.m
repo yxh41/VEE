@@ -174,6 +174,7 @@ static NSNumber *VDTResourceRuleInput(id value, id key, id section) {
 - (void)vdtRefreshCheckResults { [_checkResults refreshDisplay]; }
 - (void)refreshDisplay { [_checkResults refreshDisplay]; }
 - (void)requestNiceRetry { [_checkResults requestNiceRetry]; }
+- (void)requestResourceRetry { [_checkResults requestResourceRetry]; }
 - (void)confirmFollowContainingAppNice { [[self vdtNicePreferences] confirmFollowContainingAppNice]; }
 
 - (NSArray *)specifiers {

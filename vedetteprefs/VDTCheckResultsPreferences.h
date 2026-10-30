@@ -8,6 +8,7 @@
 - (NSArray<PSSpecifier *> *)specifiers;
 - (void)refreshDisplay;
 - (void)requestNiceRetry;
+- (void)requestResourceRetry;
 - (void)markNicePending;
 - (void)niceResultDidChange;
 @end

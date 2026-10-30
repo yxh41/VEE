@@ -479,6 +479,27 @@ static void resourceRemovalCallback(CFNotificationCenterRef center, void *observ
     });
 }
 
+// Explicit resource-only retry, symmetric with the nice retry. Resource rules
+// otherwise wait for a prefs write or a process relaunch, so a rule edited
+// while the target is already running had no way to be re-evaluated on demand.
+static BOOL resource_refresh_scheduled;
+static void resourceRefreshCallback(CFNotificationCenterRef center, void *observer,
+                                    CFStringRef name, const void *object, CFDictionaryRef userInfo){
+    (void)center; (void)observer; (void)name; (void)object; (void)userInfo;
+    dispatch_async(vedette_serial_queue(), ^{
+        if (resource_refresh_scheduled) return;
+        resource_refresh_scheduled = YES;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 100 * NSEC_PER_MSEC), vedette_serial_queue(), ^{
+            NSDictionary *prefs = getPrefs();
+            invalidate_resource_retry_sync();
+            vdt_resource_reload(prefs);
+            apply_resource_targets_sync(vdt_resolve_targets(vdt_configs_from_prefs(prefs),
+                vdt_resource_rules_from_prefs(prefs)), YES);
+            resource_refresh_scheduled = NO;
+        });
+    });
+}
+
 static NSString *current_executable_path(pid_t pid){
     char path[PROC_PIDPATHINFO_MAXSIZE];
     if (!VDTCopyProcessInfoString(pid, path, sizeof(path), proc_pidpath)) return nil;
@@ -491,10 +512,18 @@ static NSString *current_executable_path(pid_t pid){
             pid_t pid = getpid();
             NSString *executablePath = current_executable_path(pid);
             BOOL isRunningBoard = [executablePath isEqualToString:@"/usr/libexec/runningboardd"];
+            if (!isRunningBoard) {
+                // proc_pidpath is the primary signal, but a failed lookup must not
+                // silently leave runningboardd fully inert with no diagnostic. Fall
+                // back to the bundle identifier before giving up.
+                NSString *bundleIdentifier = [NSBundle mainBundle].bundleIdentifier;
+                isRunningBoard = [bundleIdentifier isEqualToString:@"com.apple.runningboardd"];
+            }
 
             if (isRunningBoard) {
                 reloadPrefs();
                 CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL, resourceRemovalCallback, CFSTR(VDT_RESOURCE_RESTORE_NN), NULL, CFNotificationSuspensionBehaviorDeliverImmediately);
+                CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL, resourceRefreshCallback, CFSTR(VDT_RESOURCE_RETRY_NN), NULL, CFNotificationSuspensionBehaviorDeliverImmediately);
                 CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL, niceRefreshCallback, CFSTR(VDT_NICE_RETRY_NOTIFICATION), NULL, CFNotificationSuspensionBehaviorDeliverImmediately);
                 CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), NULL, niceRefreshCallback, CFSTR(VDT_NICE_RESTORE_NOTIFICATION), NULL, CFNotificationSuspensionBehaviorDeliverImmediately);
                 notify_register_dispatch(NOTIFY_PID_NN,

@@ -76,6 +76,7 @@
 "Nice value" = "nice 值";
 "Nice execution status" = "nice 执行状态";
 "Check / retry nice" = "检查 / 重试 nice";
+"Check / retry resource" = "检查 / 重试资源规则";
 "Nice cannot be enabled for this protected process. The value can still be saved." = "此受保护进程不能启用 nice，但仍可保存数值。";
 "Nice is independent of CPU limits. Lower values mean higher scheduling priority; 0 does not enable interference." = "nice 与 CPU 限制相互独立。数值越低，调度优先级越高；预选 0 不会启用干预。";
 "Waiting for execution result" = "等待执行结果";

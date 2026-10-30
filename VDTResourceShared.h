@@ -6,6 +6,7 @@ extern "C" {
 #endif
 #define VDT_RESOURCE_STATUS_NN "com.doimty.vedette.resource-status"
 #define VDT_RESOURCE_RESTORE_NN "com.doimty.vedette.resource-removal"
+#define VDT_RESOURCE_RETRY_NN "com.doimty.vedette.resource-retry"
 NSString *VDTResourceStateDirectory(void);
 BOOL VDTResourceWriteEnabled(NSDictionary *prefs);
 NSDictionary *VDTResourceConfiguration(NSDictionary *prefs);

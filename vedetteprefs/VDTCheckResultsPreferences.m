@@ -99,6 +99,9 @@
         PSSpecifier *retry = [PSSpecifier preferenceSpecifierNamed:VDTLoc(self.class, @"Check / retry nice")
             target:_owner set:nil get:nil detail:nil cell:PSButtonCell edit:nil];
         [retry setButtonAction:@selector(requestNiceRetry)]; [rows addObject:retry];
+        PSSpecifier *resourceRetry = [PSSpecifier preferenceSpecifierNamed:VDTLoc(self.class, @"Check / retry resource")
+            target:_owner set:nil get:nil detail:nil cell:PSButtonCell edit:nil];
+        [resourceRetry setButtonAction:@selector(requestResourceRetry)]; [rows addObject:resourceRetry];
         _specifiers = [rows copy];
     }
     [self reloadModels];
@@ -120,5 +123,8 @@
 }
 - (void)requestNiceRetry {
     [[_owner vdtNicePreferences] requestRetry]; // the existing nice-only notification
+}
+- (void)requestResourceRetry {
+    notify_post(VDT_RESOURCE_RETRY_NN); // re-evaluate resource rules on demand
 }
 @end
