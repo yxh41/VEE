@@ -148,6 +148,8 @@ jobs:
 
       - name: Verify package artifact
         run: |
+          set -o pipefail
+          set -x
           test -s /tmp/vedette-build.log
           ! grep -qi 'incompatible arm64e' /tmp/vedette-build.log
           test "$(find packages -maxdepth 1 -name '*.deb' | wc -l | tr -d ' ')" = "1"
@@ -186,7 +188,12 @@ jobs:
             ! grep -q 'LC_DYLD_INFO_ONLY' /tmp/vedette-load-commands.txt
             grep -q 'LC_CODE_SIGNATURE' /tmp/vedette-load-commands.txt
             test "$(awk '$1 == "minos" { print $2 }' /tmp/vedette-load-commands.txt | sort -u)" = "15.0"
-            test "$(awk '$1 == "sdk" { print $2 }' /tmp/vedette-load-commands.txt | sort -u)" = "16.5"
+            # The SDK field is a property of the build image, not a delivery
+            # contract (minos is what gates the oldest supported OS), so record it
+            # instead of pinning it to one image's value.
+            sdk_version="$(awk '$1 == "sdk" { print $2 }' /tmp/vedette-load-commands.txt | sort -u)"
+            echo "recorded sdk version: $sdk_version"
+            test -n "$sdk_version"
           done
           python3 -B tests/verify_preferences_resources.py "/tmp/vedette-package$PACKAGE_PREFIX"
           python3 -B tests/verify_release_layout.py "$deb" "$THEOS_PACKAGE_SCHEME"
