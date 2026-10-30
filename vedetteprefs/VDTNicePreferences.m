@@ -151,7 +151,7 @@ id VDTNicePreferenceValueWithPrefs(NSString *identifier, VDTConfigType type, NSS
                 @"Without its own nice fields, this extension follows its app's nice rule. Saving a switch or value creates an independent nice rule; CPU and resource rules are unchanged.") forKey:@"footerText"];
             [_specifiers addObject:_inheritanceSpecifier];
             _followSpecifier = [PSSpecifier preferenceSpecifierNamed:VDTLoc(self.class, @"Follow containing app nice")
-                target:self set:nil get:nil detail:nil cell:PSButtonCell edit:nil];
+                target:_owner set:nil get:nil detail:nil cell:PSButtonCell edit:nil];
             [_followSpecifier setButtonAction:@selector(confirmFollowContainingAppNice)];
             [_specifiers addObject:_followSpecifier];
             [self updateInheritancePresentation];

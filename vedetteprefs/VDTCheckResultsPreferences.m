@@ -93,11 +93,11 @@
             target:nil set:nil get:nil detail:VDTCheckDetailsController.class cell:PSLinkCell edit:nil];
         [rows addObject:_details];
         PSSpecifier *refresh = [PSSpecifier preferenceSpecifierNamed:VDTLoc(self.class, @"Refresh display")
-            target:self set:nil get:nil detail:nil cell:PSButtonCell edit:nil];
+            target:_owner set:nil get:nil detail:nil cell:PSButtonCell edit:nil];
         [refresh setButtonAction:@selector(refreshDisplay)]; [rows addObject:refresh];
         [rows addObject:[PSSpecifier emptyGroupSpecifier]];
         PSSpecifier *retry = [PSSpecifier preferenceSpecifierNamed:VDTLoc(self.class, @"Check / retry nice")
-            target:self set:nil get:nil detail:nil cell:PSButtonCell edit:nil];
+            target:_owner set:nil get:nil detail:nil cell:PSButtonCell edit:nil];
         [retry setButtonAction:@selector(requestNiceRetry)]; [rows addObject:retry];
         _specifiers = [rows copy];
     }
