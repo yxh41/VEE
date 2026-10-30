@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Select package-only rootless metadata; never change runtime or execute hooks.
+"""Select package-only roothide metadata; never change runtime or execute hooks.
 Pinned Theos wraps the install prefix after before-package, so staging paths
-are unprefixed here even for rootless. DEBIAN/control is already generated.
+are unprefixed here. DEBIAN/control is already generated.
 """
 from pathlib import Path
-import argparse, os, shutil
+import argparse
 ROOT=Path(__file__).resolve().parents[1]
-ARCH={'roothide':'iphoneos-arm64e','rootless':'iphoneos-arm64'}
+ARCH={'roothide':'iphoneos-arm64e'}
 
 def stage_release(stage,scheme):
     if scheme not in ARCH: raise ValueError('unsupported package scheme')
@@ -21,14 +21,6 @@ def stage_release(stage,scheme):
     if fields.get('Architecture','').strip()!=ARCH[scheme]: raise ValueError('staged scheme/architecture mismatch')
     old='Depends: firmware (>= 15.0), roothide, preferenceloader, mobilesubstrate (>= 0.9.5000), com.opa334.altlist'
     if text.count(old)!=1: raise ValueError('unexpected dependency declaration')
-    if scheme=='rootless':
-        text=text.replace(old,old.replace('roothide, ',''),1)
-        for name in ('postinst','prerm'):
-            target=stage/'DEBIAN'/name
-            if target.is_symlink(): raise ValueError('unsafe hook target')
-            shutil.copyfile(ROOT/'layout-rootless/DEBIAN'/name,target)
-            os.chmod(target,0o755)
-        control.write_text(text)
     print('Staged '+scheme+' metadata; original recovery gates remain required.')
 
 if __name__=='__main__':

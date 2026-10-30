@@ -7,8 +7,8 @@ export FINALPACKAGE = 1
 
 export PREFIX ?= $(THEOS)/toolchain/Xcode11.xctoolchain/usr/bin/
 
-ifeq ($(filter $(THEOS_PACKAGE_SCHEME),roothide rootless),)
-$(error Supported package schemes: roothide rootless)
+ifeq ($(filter $(THEOS_PACKAGE_SCHEME),roothide),)
+$(error Supported package scheme: roothide)
 endif
 export TARGET = iphone:clang:16.5:15.0
 INSTALL_TARGET_PROCESSES = SpringBoard
@@ -19,7 +19,7 @@ include $(THEOS)/makefiles/common.mk
 TWEAK_NAME = Vedette
 
 Vedette_FILES = $(wildcard *.xm) $(wildcard *.mm) $(wildcard *.c)
-Vedette_CFLAGS = -fobjc-arc -I$(THEOS_PROJECT_DIR)
+Vedette_CFLAGS = -fobjc-arc -I$(THEOS_PROJECT_DIR) -Werror
 
 include $(THEOS_MAKE_PATH)/tweak.mk
 SUBPROJECTS += vedetteprefs nicectl
